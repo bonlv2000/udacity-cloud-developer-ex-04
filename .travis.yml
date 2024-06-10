@@ -1,55 +1,36 @@
-version: 2.1
+language: generic
 
-jobs:
-  lint-app:
-    docker:
-      - image: circleci/node:13.8.0
-    steps:
-      - checkout
-  build-docker:
-    machine: true
-    steps:
-      - checkout
-      - run:
-          name: Build docker container for each microservices
-          command: |
-            echo "--------- Installing dependencies-----------"
-            sudo curl -LO https://nodejs.org/dist/v18.0.0/node-v18.0.0-linux-x64.tar.xz
-            sudo tar -xvf node-v18.0.0-linux-x64.tar.xz
-            sudo cp -r node-v18.0.0-linux-x64/{bin,include,lib,share} /usr/
-            node --version => v18.0.0
-            sudo apt install nodejs
+services:
+  - docker
 
-            echo "--------- The images is Building ------------"
+before_install:
+  - echo "--------- Installing dependencies -----------"
+  - sudo curl -LO https://nodejs.org/dist/v18.0.0/node-v18.0.0-linux-x64.tar.xz
+  - sudo tar -xvf node-v18.0.0-linux-x64.tar.xz
+  - sudo cp -r node-v18.0.0-linux-x64/{bin,include,lib,share} /usr/
+  - node --version
+  - sudo apt install -y nodejs
 
-            docker build -t udagram-api-feed ./udagram-api-feed
-            docker tag udagram-api-feed binlv2011/udagram-api-feed:v1
+script:
+  - echo "--------- The images are Building ------------"
+  - docker build -t udagram-api-feed ./udagram-api-feed
+  - docker tag udagram-api-feed binlv2011/udagram-api-feed:v1
+  - docker build -t udagram-api-user ./udagram-api-user
+  - docker tag udagram-api-user binlv2011/udagram-api-user:v1
+  - docker build -t udagram-frontend ./udagram-frontend
+  - docker tag udagram-frontend binlv2011/udagram-frontend:v1
+  - docker build -t udagram-reverseproxy ./udagram-reverseproxy
+  - docker tag udagram-reverseproxy binlv2011/udagram-reverseproxy:v1
+  - echo "-------- All images successfully built ----------"
 
-            docker build -t udagram-api-user ./udagram-api-user
-            docker tag udagram-api-user binlv2011/udagram-api-user:v1
+after_success:
+  - echo "------- Logging in to Docker Hub --------"
+  - echo "$DOCKER_PASSWORD" | docker login -u "binlv2011" --password-stdin
+  - echo "-------------- Pushing images to Docker Hub -------"
+  - docker push binlv2011/udagram-api-feed:v1
+  - docker push binlv2011/udagram-api-user:v1
+  - docker push binlv2011/udagram-frontend:v1
+  - docker push binlv2011/udagram-reverseproxy:v1
 
-            docker build -t udagram-frontend ./udagram-frontend
-            docker tag udagram-frontend binlv2011/udagram-frontend:v1
-
-            docker build -t udagram-reverseproxy ./udagram-reverseproxy
-            docker tag udagram-reverseproxy binlv2011/udagram-reverseproxy:v1
-
-            echo "-------- All images succesfully built----------"
-
-            echo " ------- login in to hub--------"
-
-            docker login -u binlv2011 -p $DOCKERPASS
-
-            echo "-------------- Pushing images to dockerhub-------"
-
-            docker push binlv2011/udagram-api-feed:v1
-            docker push binlv2011/udagram-api-user:v1
-            docker push binlv2011/udagram-frontend:v1
-            docker push binlv2011/udagram-reverseproxy:v1
-
-workflows:
-  default:
-    jobs:
-      - lint-app
-      - build-docker:
-          requires: [lint-app]
+notifications:
+  email: false
